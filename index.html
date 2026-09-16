@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0b0d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>NutriTrack</title>
+<style>
+:root{
+  --bg:#0b0b0d; --panel:#17171a; --panel2:#202024; --line:#303035;
+  --text:#f5f5f7; --muted:#98989f; --accent:#18c3d6;
+  --carbs:#f4c21d; --fiber:#b9a07d; --protein:#ef3d68; --fat:#76508d;
+  --danger:#ff5d63; --good:#35d07f;
+  --safe-top:max(14px, env(safe-area-inset-top));
+  --safe-bottom:max(18px, env(safe-area-inset-bottom));
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",Arial,sans-serif}
+body{min-height:100vh}
+button,input,textarea{font:inherit}
+button{color:inherit}
+.app{max-width:820px;margin:auto;min-height:100vh;padding:var(--safe-top) 16px var(--safe-bottom)}
+header{display:flex;align-items:center;justify-content:space-between;min-height:52px;border-bottom:1px solid var(--line)}
+h1{font-size:22px;margin:0;font-weight:700}
+.icon-btn{border:0;background:none;color:#0aa8ff;font-size:30px;line-height:1;padding:6px;cursor:pointer}
+.nav-title{display:flex;align-items:center;gap:12px}
+.month-nav{display:flex;align-items:center;justify-content:space-between;padding:18px 2px 12px}
+.month-nav strong{font-size:20px}
+.month-arrow{border:0;background:none;color:#0aa8ff;font-size:30px;padding:2px 8px}
+.weekdays,.calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:7px}
+.weekdays div{text-align:center;color:var(--muted);font-size:12px;font-weight:600;padding:4px 0}
+.day{aspect-ratio:1;border:0;background:transparent;padding:0;position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.day.empty{cursor:default}
+.day-number{position:absolute;z-index:3;font-size:13px;font-weight:650}
+.day.today .day-number{color:var(--accent)}
+.day.selected:after{content:"";position:absolute;inset:2px;border:1px solid var(--accent);border-radius:50%}
+.day svg{width:100%;height:100%;transform:rotate(-90deg)}
+.day .track{fill:none;stroke:#29292d;stroke-width:8}
+.day .arc{fill:none;stroke-width:8;stroke-linecap:butt}
+.legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:11px;margin:18px 2px}
+.legend span{display:flex;align-items:center;gap:5px}.dot{width:8px;height:8px;border-radius:50%}
+.empty-state{color:var(--muted);text-align:center;padding:50px 20px}
+.screen{display:none}.screen.active{display:block}
+
+.day-header{display:flex;align-items:center;justify-content:space-between;padding:8px 0 16px}
+.day-header .date{font-size:20px;font-weight:700}
+.back{border:0;background:none;color:#0aa8ff;font-size:17px;padding:8px 0}
+.summary{text-align:center;padding:8px 0 4px}
+.chart-wrap{position:relative;width:min(88vw,420px);aspect-ratio:1;margin:0 auto}
+.chart-wrap svg{width:100%;height:100%;transform:rotate(-90deg)}
+.chart-bg{fill:none;stroke:#242428;stroke-width:28}
+.chart-arc{fill:none;stroke-width:28;stroke-linecap:butt;transition:stroke-dasharray .3s ease}
+.chart-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.kcal{font-size:38px;font-weight:750;letter-spacing:-1px}
+.kcal-label{font-size:14px;color:var(--muted);margin-top:-2px}
+.macro-inline{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:12px;font-size:12px;color:var(--muted)}
+.macro-inline b{color:var(--text)}
+.targets{margin:12px 0 20px;padding:12px 14px;background:var(--panel);border-radius:14px;border:1px solid var(--line)}
+.target-title{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:9px}
+.target-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px}
+.target-row{display:flex;justify-content:space-between;gap:8px;font-size:12px}
+.target-row .label{color:var(--muted)}
+.delta.good{color:var(--good)}.delta.over{color:var(--danger)}
+
+.meal{margin:12px 0;background:var(--panel);border:1px solid var(--line);border-radius:15px;overflow:hidden}
+.meal-top{display:flex;align-items:center;justify-content:space-between;padding:13px 14px}
+.meal-title{font-size:15px;font-weight:700}
+.meal-total{font-size:11px;color:var(--muted)}
+textarea{display:block;width:100%;min-height:116px;resize:vertical;background:#101012;border:0;border-top:1px solid var(--line);color:var(--text);padding:12px 13px;outline:none;line-height:1.45;font-size:13px}
+textarea::placeholder{color:#66666d}
+.meal-bottom{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-top:1px solid var(--line);gap:8px}
+.parse-status{font-size:11px;color:var(--muted)}
+.small-btn{border:1px solid #3a3a40;background:#26262b;border-radius:9px;padding:7px 10px;font-size:11px;cursor:pointer}
+.clear{color:#ff6970}
+.settings-panel{position:fixed;z-index:20;inset:0;background:rgba(0,0,0,.72);display:none;align-items:flex-end}
+.settings-panel.open{display:flex}
+.sheet{background:#18181b;border-radius:20px 20px 0 0;width:100%;padding:18px 18px calc(20px + var(--safe-bottom));border-top:1px solid #343438;max-height:88vh;overflow:auto}
+.sheet-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.sheet h2{font-size:19px;margin:0}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field label{display:block;color:var(--muted);font-size:11px;margin-bottom:5px}
+.field input{width:100%;background:#0f0f11;border:1px solid #35353a;color:var(--text);border-radius:10px;padding:10px;outline:none}
+.sheet-actions{display:flex;gap:10px;margin-top:16px}.primary{background:#0aa8ff;border:0;color:#00111a;font-weight:700;flex:1;border-radius:11px;padding:12px}.secondary{background:#2a2a2e;border:1px solid #3b3b40;border-radius:11px;padding:12px}
+.data-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
+.hint{font-size:11px;line-height:1.45;color:var(--muted);margin-top:12px}
+@media(min-width:700px){
+  .app{padding-left:28px;padding-right:28px}
+  .calendar{gap:12px}.weekdays{gap:12px}
+  .day .track,.day .arc{stroke-width:7}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <section id="calendarScreen" class="screen active">
+    <header>
+      <h1>NutriTrack</h1>
+      <button class="icon-btn" id="settingsBtn" aria-label="Objetivos y datos">⚙</button>
+    </header>
+    <div class="month-nav">
+      <button class="month-arrow" id="prevMonth">‹</button>
+      <strong id="monthTitle"></strong>
+      <button class="month-arrow" id="nextMonth">›</button>
+    </div>
+    <div class="weekdays"><div>L</div><div>M</div><div>X</div><div>J</div><div>V</div><div>S</div><div>D</div></div>
+    <div class="calendar" id="calendar"></div>
+    <div class="legend">
+      <span><i class="dot" style="background:var(--carbs)"></i>Carbs</span>
+      <span><i class="dot" style="background:var(--fiber)"></i>Fibra</span>
+      <span><i class="dot" style="background:var(--protein)"></i>Proteína</span>
+      <span><i class="dot" style="background:var(--fat)"></i>Grasa</span>
+    </div>
+    <div class="empty-state" id="monthEmpty">Tocá un día para empezar el tracking.</div>
+  </section>
+
+  <section id="dayScreen" class="screen">
+    <div class="day-header">
+      <button class="back" id="backBtn">‹ Mes</button>
+      <div class="date" id="dayTitle"></div>
+      <button class="back" id="todayBtn">Hoy</button>
+    </div>
+
+    <div class="summary">
+      <div class="chart-wrap">
+        <svg viewBox="0 0 200 200" aria-label="Progreso nutricional">
+          <circle class="chart-bg" cx="100" cy="100" r="72"></circle>
+          <circle class="chart-bg" cx="100" cy="100" r="72" stroke-dasharray="104 348" stroke-dashoffset="0" opacity=".55"></circle>
+          <circle id="arcCarbs" class="chart-arc" cx="100" cy="100" r="72" style="stroke:var(--carbs)"></circle>
+          <circle id="arcFiber" class="chart-arc" cx="100" cy="100" r="72" style="stroke:var(--fiber)"></circle>
+          <circle id="arcProtein" class="chart-arc" cx="100" cy="100" r="72" style="stroke:var(--protein)"></circle>
+          <circle id="arcFat" class="chart-arc" cx="100" cy="100" r="72" style="stroke:var(--fat)"></circle>
+        </svg>
+        <div class="chart-center">
+          <div class="kcal" id="kcalValue">0</div>
+          <div class="kcal-label">kcal</div>
+        </div>
+      </div>
+      <div class="macro-inline" id="macroInline"></div>
+    </div>
+
+    <div class="targets">
+      <div class="target-title">Objetivos actuales · consumido / objetivo · diferencia</div>
+      <div class="target-grid" id="targetGrid"></div>
+    </div>
+
+    <div id="meals"></div>
+  </section>
+</div>
+
+<div class="settings-panel" id="settingsPanel">
+  <div class="sheet">
+    <div class="sheet-head"><h2>Objetivos y datos</h2><button class="icon-btn" id="closeSettings">×</button></div>
+    <div class="form-grid">
+      <div class="field"><label>KCAL / día</label><input id="goalKcal" type="number" min="0" step="1"></div>
+      <div class="field"><label>PROTEÍNA / día (g)</label><input id="goalProtein" type="number" min="0" step=".1"></div>
+      <div class="field"><label>CARBOHIDRATOS / día (g)</label><input id="goalCarbs" type="number" min="0" step=".1"></div>
+      <div class="field"><label>GRASA / día (g)</label><input id="goalFat" type="number" min="0" step=".1"></div>
+      <div class="field"><label>FIBRA / día (g)</label><input id="goalFiber" type="number" min="0" step=".1"></div>
+    </div>
+    <div class="sheet-actions"><button class="secondary" id="cancelSettings">Cancelar</button><button class="primary" id="saveSettings">Guardar objetivos</button></div>
+    <div class="data-actions">
+      <button class="secondary" id="exportBtn">Exportar datos</button>
+      <button class="secondary" id="importBtn">Importar datos</button>
+      <input type="file" id="importFile" accept=".json,application/json" hidden>
+    </div>
+    <div class="hint">Los datos se guardan localmente en este navegador. Exportá una copia periódicamente si querés conservar el historial al cambiar de dispositivo o navegador.</div>
+  </div>
+</div>
+
+<script>
+const MEALS = ["Desayuno","Almuerzo","Merienda","Cena","Adicional"];
+const COLORS = {carbs:"var(--carbs)",fiber:"var(--fiber)",protein:"var(--protein)",fat:"var(--fat)"};
+const defaultGoals = {kcal:2400,protein:160,carbs:250,fat:75,fiber:30};
+
+let state = JSON.parse(localStorage.getItem("nutritrack_v1") || "null") || {goals:defaultGoals,days:{}};
+state.goals = {...defaultGoals,...state.goals};
+let viewDate = new Date();
+viewDate.setHours(12,0,0,0);
+let selectedDate = keyFor(new Date());
+
+function keyFor(d){ return d.toISOString().slice(0,10); }
+function parseNum(s){ return Number(String(s).replace(",", ".")); }
+function fmt(n, decimals=1){
+  if (!Number.isFinite(n)) return "0";
+  return decimals===0 ? Math.round(n).toLocaleString("es-ES") : Number(n.toFixed(decimals)).toLocaleString("es-ES",{maximumFractionDigits:decimals});
+}
+function blankDay(){
+  const meals={}; MEALS.forEach(m=>meals[m]={text:"",data:{kcal:0,protein:0,carbs:0,fat:0,fiber:0},parsed:false});
+  return {meals};
+}
+function getDay(key){ if(!state.days[key]) state.days[key]=blankDay(); return state.days[key]; }
+function save(){ localStorage.setItem("nutritrack_v1",JSON.stringify(state)); }
+
+function extractTotals(text){
+  // Preferred: the TOTAL row produced by the nutrition-tracking chat.
+  const normalized = text.replace(/\r/g,"").replace(/\u00a0/g," ");
+  const lines = normalized.split("\n").map(x=>x.trim()).filter(Boolean);
+  const totalLine = lines.find(l => /\bTOTAL\b/i.test(l));
+  if(totalLine){
+    const kcal = totalLine.match(/([0-9]+(?:[.,][0-9]+)?)\s*kcal/i);
+    const grams = [...totalLine.matchAll(/([0-9]+(?:[.,][0-9]+)?)\s*g/gi)].map(m=>parseNum(m[1]));
+    if(kcal && grams.length>=4){
+      return {kcal:parseNum(kcal[1]),protein:grams[0],carbs:grams[1],fat:grams[2],fiber:grams[3]};
+    }
+  }
+
+  // Fallback: recognize rows with the five numeric nutrition columns.
+  let sum={kcal:0,protein:0,carbs:0,fat:0,fiber:0}, found=0;
+  for(const line of lines){
+    if(/^(total|alimento|cantidad)/i.test(line)) continue;
+    const kcalM=line.match(/([0-9]+(?:[.,][0-9]+)?)\s*kcal/i);
+    const g=[...line.matchAll(/([0-9]+(?:[.,][0-9]+)?)\s*g/gi)].map(m=>parseNum(m[1]));
+    if(kcalM && g.length>=4){
+      sum.kcal+=parseNum(kcalM[1]); sum.protein+=g[0]; sum.carbs+=g[1]; sum.fat+=g[2]; sum.fiber+=g[3]; found++;
+    }
+  }
+  return found ? sum : null;
+}
+function dayTotals(day){
+  const total={kcal:0,protein:0,carbs:0,fat:0,fiber:0};
+  MEALS.forEach(m=>Object.keys(total).forEach(k=>total[k]+=Number(day.meals[m]?.data?.[k]||0)));
+  return total;
+}
+function pct(v,g){ return g>0 ? Math.min(1,v/g) : 0; }
+
+function renderCalendar(){
+  const y=viewDate.getFullYear(), m=viewDate.getMonth();
+  document.getElementById("monthTitle").textContent = new Intl.DateTimeFormat("es-ES",{month:"long",year:"numeric"}).format(viewDate).replace(/^./,c=>c.toUpperCase());
+  const cal=document.getElementById("calendar"); cal.innerHTML="";
+  const first=new Date(y,m,1); let offset=(first.getDay()+6)%7;
+  const days=new Date(y,m+1,0).getDate();
+  for(let i=0;i<offset;i++){ const e=document.createElement("div"); e.className="day empty"; cal.appendChild(e); }
+  const todayKey=keyFor(new Date());
+  for(let d=1;d<=days;d++){
+    const date=new Date(y,m,d,12), key=keyFor(date), cell=document.createElement("button");
+    cell.className="day"+(key===todayKey?" today":"")+(key===selectedDate?" selected":"");
+    const svg=document.createElementNS("http://www.w3.org/2000/svg","http://www.w3.org/2000/svg");
+    svg.setAttribute("viewBox","0 0 100 100");
+    const total=dayTotals(getDay(key)), C=2*Math.PI*34;
+    const bg=document.createElementNS("http://www.w3.org/2000/svg","circle");
+    bg.setAttribute("cx","50");bg.setAttribute("cy","50");bg.setAttribute("r","34");bg.setAttribute("class","track");svg.appendChild(bg);
+    const vals=[["carbs","var(--carbs)"],["fiber","var(--fiber)"],["protein","var(--protein)"],["fat","var(--fat)"]];
+    let offsetArc=0;
+    vals.forEach(([k,col])=>{
+      const arc=document.createElementNS("http://www.w3.org/2000/svg","circle");
+      arc.setAttribute("cx","50");arc.setAttribute("cy","50");arc.setAttribute("r","34");arc.setAttribute("class","arc");
+      arc.style.stroke=col;
+      const quarter=C/4-2;
+      const visible=quarter*pct(total[k],state.goals[k]);
+      arc.setAttribute("stroke-dasharray",`${visible} ${C-visible}`);
+      arc.setAttribute("stroke-dashoffset",String(-offsetArc));
+      svg.appendChild(arc); offsetArc+=C/4;
+    });
+    cell.appendChild(svg);
+    const n=document.createElement("span");n.className="day-number";n.textContent=d;cell.appendChild(n);
+    cell.addEventListener("click",()=>openDay(key));
+    cal.appendChild(cell);
+  }
+  document.getElementById("monthEmpty").style.display=Object.keys(state.days).length?"none":"block";
+}
+
+function formatDate(key){
+  const d=new Date(key+"T12:00:00");
+  return new Intl.DateTimeFormat("es-ES",{weekday:"short",day:"numeric",month:"short",year:"numeric"}).format(d).replace(/\./g,"");
+}
+function setArc(id, progress, startFraction){
+  const circle=document.getElementById(id), C=2*Math.PI*72, quarter=C/4-5, visible=quarter*Math.min(1,progress);
+  circle.setAttribute("stroke-dasharray",`${visible} ${C-visible}`);
+  circle.setAttribute("stroke-dashoffset",String(-(startFraction*C/4)));
+}
+function renderDay(){
+  const day=getDay(selectedDate), total=dayTotals(day);
+  document.getElementById("dayTitle").textContent=formatDate(selectedDate);
+  document.getElementById("kcalValue").textContent=fmt(total.kcal,0);
+  setArc("arcCarbs",pct(total.carbs,state.goals.carbs),0);
+  setArc("arcFiber",pct(total.fiber,state.goals.fiber),1);
+  setArc("arcProtein",pct(total.protein,state.goals.protein),2);
+  setArc("arcFat",pct(total.fat,state.goals.fat),3);
+
+  document.getElementById("macroInline").innerHTML =
+    `<span style="color:var(--carbs)">C <b>${fmt(total.carbs)} g</b></span>`+
+    `<span style="color:var(--fiber)">F <b>${fmt(total.fiber)} g</b></span>`+
+    `<span style="color:var(--protein)">P <b>${fmt(total.protein)} g</b></span>`+
+    `<span style="color:var(--fat)">G <b>${fmt(total.fat)} g</b></span>`;
+
+  const rows=[
+    ["Kcal",total.kcal,state.goals.kcal,"kcal"],
+    ["Proteína",total.protein,state.goals.protein,"g"],
+    ["Carbohidratos",total.carbs,state.goals.carbs,"g"],
+    ["Grasa",total.fat,state.goals.fat,"g"],
+    ["Fibra",total.fiber,state.goals.fiber,"g"]
+  ];
+  document.getElementById("targetGrid").innerHTML=rows.map(([label,v,g,u])=>{
+    const diff=v-g, cls=diff>0?"over":"good";
+    const sign=diff>0?"+":"";
+    return `<div class="target-row"><span class="label">${label}</span><span>${fmt(v)} / ${fmt(g)} ${u} · <b class="delta ${cls}">${sign}${fmt(diff)} ${u}</b></span></div>`;
+  }).join("");
+
+  const meals=document.getElementById("meals");meals.innerHTML="";
+  MEALS.forEach(name=>{
+    const data=day.meals[name]||{text:"",data:{kcal:0,protein:0,carbs:0,fat:0,fiber:0},parsed:false};
+    const wrap=document.createElement("div");wrap.className="meal";
+    wrap.innerHTML=`<div class="meal-top"><span class="meal-title">${name}</span><span class="meal-total">${data.parsed?fmt(data.data.kcal,0)+" kcal":"Sin datos"}</span></div>
+      <textarea placeholder="Pegá aquí la tabla del chat nutricional…"></textarea>
+      <div class="meal-bottom"><span class="parse-status">${data.parsed?"✓ Datos interpretados":"Esperando datos"}</span><button class="small-btn clear">Borrar</button></div>`;
+    const ta=wrap.querySelector("textarea");ta.value=data.text||"";
+    ta.addEventListener("input",()=>{
+      data.text=ta.value;
+      const parsed=extractTotals(ta.value);
+      if(parsed){data.data=parsed;data.parsed=true;}else if(!ta.value.trim()){data.data={kcal:0,protein:0,carbs:0,fat:0,fiber:0};data.parsed=false;}else{data.data={kcal:0,protein:0,carbs:0,fat:0,fiber:0};data.parsed=false;}
+      day.meals[name]=data;save();renderDay();
+      // Keep focus/cursor after rerender.
+      setTimeout(()=>{const t=[...document.querySelectorAll("textarea")].find(x=>x.value===ta.value);if(t){t.focus();t.setSelectionRange(t.value.length,t.value.length)}},0);
+    });
+    wrap.querySelector(".clear").addEventListener("click",()=>{day.meals[name]={text:"",data:{kcal:0,protein:0,carbs:0,fat:0,fiber:0},parsed:false};save();renderDay();});
+    meals.appendChild(wrap);
+  });
+}
+function openDay(key){
+  selectedDate=key;
+  const d=new Date(key+"T12:00:00");viewDate=new Date(d.getFullYear(),d.getMonth(),1,12);
+  document.getElementById("calendarScreen").classList.remove("active");
+  document.getElementById("dayScreen").classList.add("active");
+  renderDay();
+}
+function backMonth(){document.getElementById("dayScreen").classList.remove("active");document.getElementById("calendarScreen").classList.add("active");renderCalendar();}
+function openSettings(){
+  document.getElementById("goalKcal").value=state.goals.kcal;
+  document.getElementById("goalProtein").value=state.goals.protein;
+  document.getElementById("goalCarbs").value=state.goals.carbs;
+  document.getElementById("goalFat").value=state.goals.fat;
+  document.getElementById("goalFiber").value=state.goals.fiber;
+  document.getElementById("settingsPanel").classList.add("open");
+}
+document.getElementById("prevMonth").onclick=()=>{viewDate.setMonth(viewDate.getMonth()-1);renderCalendar()};
+document.getElementById("nextMonth").onclick=()=>{viewDate.setMonth(viewDate.getMonth()+1);renderCalendar()};
+document.getElementById("backBtn").onclick=backMonth;
+document.getElementById("todayBtn").onclick=()=>openDay(keyFor(new Date()));
+document.getElementById("settingsBtn").onclick=openSettings;
+document.getElementById("closeSettings").onclick=()=>document.getElementById("settingsPanel").classList.remove("open");
+document.getElementById("cancelSettings").onclick=()=>document.getElementById("settingsPanel").classList.remove("open");
+document.getElementById("saveSettings").onclick=()=>{
+  state.goals={
+    kcal:parseNum(document.getElementById("goalKcal").value)||0,
+    protein:parseNum(document.getElementById("goalProtein").value)||0,
+    carbs:parseNum(document.getElementById("goalCarbs").value)||0,
+    fat:parseNum(document.getElementById("goalFat").value)||0,
+    fiber:parseNum(document.getElementById("goalFiber").value)||0
+  };save();document.getElementById("settingsPanel").classList.remove("open");
+  renderCalendar(); if(document.getElementById("dayScreen").classList.contains("active"))renderDay();
+};
+document.getElementById("exportBtn").onclick=()=>{
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="nutritrack-backup.json";a.click();URL.revokeObjectURL(a.href);
+};
+document.getElementById("importBtn").onclick=()=>document.getElementById("importFile").click();
+document.getElementById("importFile").addEventListener("change",e=>{
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const imported=JSON.parse(reader.result);
+      if(!imported.goals||!imported.days)throw new Error();
+      state=imported;state.goals={...defaultGoals,...state.goals};save();renderCalendar();
+      if(document.getElementById("dayScreen").classList.contains("active"))renderDay();
+      alert("Datos importados correctamente.");
+    }catch(err){alert("El archivo no parece ser un backup válido de NutriTrack.");}
+  };reader.readAsText(file);e.target.value="";
+});
+document.getElementById("settingsPanel").addEventListener("click",e=>{if(e.target.id==="settingsPanel")e.currentTarget.classList.remove("open")});
+
+renderCalendar();
+</script>
+</body>
+</html>
