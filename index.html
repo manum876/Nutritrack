@@ -26,27 +26,31 @@ header{display:flex;align-items:center;justify-content:space-between;min-height:
 h1{font-size:22px;margin:0;font-weight:700}
 .icon-btn{border:0;background:none;color:#0aa8ff;font-size:30px;line-height:1;padding:6px;cursor:pointer}
 .nav-title{display:flex;align-items:center;gap:12px}
-.month-nav{display:flex;align-items:center;justify-content:space-between;padding:18px 2px 12px}
-.month-nav strong{font-size:20px}
-.month-arrow{border:0;background:none;color:#0aa8ff;font-size:30px;padding:2px 8px}
+.month-nav{display:flex;align-items:center;justify-content:space-between;padding:18px 2px 12px;gap:8px}
+.month-select-wrap{position:relative;display:flex;align-items:center;justify-content:center;min-width:180px}
+#monthTitle{appearance:none;-webkit-appearance:none;border:0;background:transparent;color:var(--text);font-size:20px;font-weight:700;text-align:center;text-align-last:center;padding:8px 30px 8px 8px;outline:none;cursor:pointer}
+.month-select-wrap:after{content:"⌄";position:absolute;right:5px;top:8px;color:var(--muted);font-size:17px;pointer-events:none}
+.month-arrow{border:0;background:none;color:#0aa8ff;font-size:30px;line-height:1;padding:6px 10px;cursor:pointer}
 .weekdays,.calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:7px}
 .weekdays div{text-align:center;color:var(--muted);font-size:12px;font-weight:600;padding:4px 0}
-.day{aspect-ratio:1;border:0;background:transparent;padding:0;position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.day{width:100%;height:72px;box-sizing:border-box;border:0;background:transparent;padding:0;position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer;min-width:0;overflow:visible}
 .day.empty{cursor:default}
-.day-number{position:absolute;z-index:3;font-size:13px;font-weight:650}
+.day-number{position:relative;z-index:4;font-size:14px;font-weight:700;line-height:1;pointer-events:none}
 .day.today .day-number{color:var(--accent)}
 .day.selected:after{content:"";position:absolute;inset:2px;border:1px solid var(--accent);border-radius:50%}
-.day svg{width:100%;height:100%;transform:rotate(-90deg)}
+.day svg{position:absolute;inset:2px;width:calc(100% - 4px);height:calc(100% - 4px);transform:rotate(-90deg);overflow:visible;display:block}
 .day .track{fill:none;stroke:#29292d;stroke-width:8}
 .day .arc{fill:none;stroke-width:8;stroke-linecap:butt}
 .legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:11px;margin:18px 2px}
 .legend span{display:flex;align-items:center;gap:5px}.dot{width:8px;height:8px;border-radius:50%}
-.empty-state{color:var(--muted);text-align:center;padding:50px 20px}
+.empty-state{color:var(--muted);text-align:center;padding:24px 20px}.calendar:empty{min-height:360px}.calendar .day-number{display:block}
 .screen{display:none}.screen.active{display:block}
 
 .day-header{display:flex;align-items:center;justify-content:space-between;padding:8px 0 16px}
-.day-header .date{font-size:20px;font-weight:700}
-.back{border:0;background:none;color:#0aa8ff;font-size:17px;padding:8px 0}
+.day-header .date{font-size:20px;font-weight:700;text-align:center;white-space:nowrap}
+.back{border:0;background:none;color:#0aa8ff;font-size:17px;padding:8px 0;cursor:pointer}
+.day-arrow{border:0;background:none;color:#0aa8ff;font-size:32px;line-height:1;padding:4px 5px;cursor:pointer}
+.day-nav-right{display:flex;align-items:center;gap:4px;min-width:72px;justify-content:flex-end}
 .summary{text-align:center;padding:8px 0 4px}
 .chart-wrap{position:relative;width:min(88vw,420px);aspect-ratio:1;margin:0 auto}
 .chart-wrap svg{width:100%;height:100%;transform:rotate(-90deg)}
@@ -88,8 +92,21 @@ textarea::placeholder{color:#66666d}
 @media(min-width:700px){
   .app{padding-left:28px;padding-right:28px}
   .calendar{gap:12px}.weekdays{gap:12px}
+  .day{height:86px}
   .day .track,.day .arc{stroke-width:7}
 }
+.month-pickers{display:flex;justify-content:center;gap:7px;min-width:0}
+.month-pickers select{appearance:auto;-webkit-appearance:auto;background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:9px 8px;font-size:16px;font-weight:700;min-width:0}
+.month-pickers #monthSelect{width:125px}.month-pickers #yearSelect{width:82px}
+.calendar{width:100%;min-height:330px;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px}
+.day{height:68px;border:1px solid var(--line);background:var(--panel);border-radius:12px;overflow:hidden}
+.day.empty{background:transparent;border:0}
+.day svg{display:none}
+.day-number{font-size:17px;color:var(--text)}
+.day.today{border:2px solid var(--accent)}
+.day.selected{box-shadow:inset 0 0 0 2px var(--accent)}
+.day.has-data{background:var(--panel2)}
+@media(min-width:700px){.day{height:82px}}
 </style>
 </head>
 <body>
@@ -100,12 +117,54 @@ textarea::placeholder{color:#66666d}
       <button class="icon-btn" id="settingsBtn" aria-label="Objetivos y datos">⚙</button>
     </header>
     <div class="month-nav">
-      <button class="month-arrow" id="prevMonth">‹</button>
-      <strong id="monthTitle"></strong>
-      <button class="month-arrow" id="nextMonth">›</button>
+      <button class="month-arrow" id="prevMonth" aria-label="Mes anterior">‹</button>
+      <div class="month-pickers">
+        <select id="monthSelect" aria-label="Mes">
+          <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
+          <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
+          <option value="6">Julio</option><option value="7">Agosto</option><option value="8" selected>Septiembre</option>
+          <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
+        </select>
+        <select id="yearSelect" aria-label="Año">
+          <option>2024</option><option>2025</option><option selected>2026</option><option>2027</option><option>2028</option><option>2029</option><option>2030</option>
+        </select>
+      </div>
+      <button class="month-arrow" id="nextMonth" aria-label="Mes siguiente">›</button>
     </div>
     <div class="weekdays"><div>L</div><div>M</div><div>X</div><div>J</div><div>V</div><div>S</div><div>D</div></div>
-    <div class="calendar" id="calendar"></div>
+    <div class="calendar" id="calendar">
+      <div class="day empty" aria-hidden="true"></div>
+      <button type="button" class="day" data-date="2026-09-01"><span class="day-number">1</span></button>
+      <button type="button" class="day" data-date="2026-09-02"><span class="day-number">2</span></button>
+      <button type="button" class="day" data-date="2026-09-03"><span class="day-number">3</span></button>
+      <button type="button" class="day" data-date="2026-09-04"><span class="day-number">4</span></button>
+      <button type="button" class="day" data-date="2026-09-05"><span class="day-number">5</span></button>
+      <button type="button" class="day" data-date="2026-09-06"><span class="day-number">6</span></button>
+      <button type="button" class="day" data-date="2026-09-07"><span class="day-number">7</span></button>
+      <button type="button" class="day" data-date="2026-09-08"><span class="day-number">8</span></button>
+      <button type="button" class="day" data-date="2026-09-09"><span class="day-number">9</span></button>
+      <button type="button" class="day" data-date="2026-09-10"><span class="day-number">10</span></button>
+      <button type="button" class="day" data-date="2026-09-11"><span class="day-number">11</span></button>
+      <button type="button" class="day" data-date="2026-09-12"><span class="day-number">12</span></button>
+      <button type="button" class="day" data-date="2026-09-13"><span class="day-number">13</span></button>
+      <button type="button" class="day" data-date="2026-09-14"><span class="day-number">14</span></button>
+      <button type="button" class="day" data-date="2026-09-15"><span class="day-number">15</span></button>
+      <button type="button" class="day" data-date="2026-09-16"><span class="day-number">16</span></button>
+      <button type="button" class="day" data-date="2026-09-17"><span class="day-number">17</span></button>
+      <button type="button" class="day" data-date="2026-09-18"><span class="day-number">18</span></button>
+      <button type="button" class="day" data-date="2026-09-19"><span class="day-number">19</span></button>
+      <button type="button" class="day" data-date="2026-09-20"><span class="day-number">20</span></button>
+      <button type="button" class="day" data-date="2026-09-21"><span class="day-number">21</span></button>
+      <button type="button" class="day" data-date="2026-09-22"><span class="day-number">22</span></button>
+      <button type="button" class="day" data-date="2026-09-23"><span class="day-number">23</span></button>
+      <button type="button" class="day" data-date="2026-09-24"><span class="day-number">24</span></button>
+      <button type="button" class="day" data-date="2026-09-25"><span class="day-number">25</span></button>
+      <button type="button" class="day" data-date="2026-09-26"><span class="day-number">26</span></button>
+      <button type="button" class="day" data-date="2026-09-27"><span class="day-number">27</span></button>
+      <button type="button" class="day" data-date="2026-09-28"><span class="day-number">28</span></button>
+      <button type="button" class="day" data-date="2026-09-29"><span class="day-number">29</span></button>
+      <button type="button" class="day" data-date="2026-09-30"><span class="day-number">30</span></button>
+    </div>
     <div class="legend">
       <span><i class="dot" style="background:var(--carbs)"></i>Carbs</span>
       <span><i class="dot" style="background:var(--fiber)"></i>Fibra</span>
@@ -118,8 +177,12 @@ textarea::placeholder{color:#66666d}
   <section id="dayScreen" class="screen">
     <div class="day-header">
       <button class="back" id="backBtn">‹ Mes</button>
+      <button class="day-arrow" id="prevDay" aria-label="Día anterior">‹</button>
       <div class="date" id="dayTitle"></div>
-      <button class="back" id="todayBtn">Hoy</button>
+      <div class="day-nav-right">
+        <button class="day-arrow" id="nextDay" aria-label="Día siguiente">›</button>
+        <button class="back" id="todayBtn">Hoy</button>
+      </div>
     </div>
 
     <div class="summary">
@@ -174,8 +237,15 @@ const MEALS = ["Desayuno","Almuerzo","Merienda","Cena","Adicional"];
 const COLORS = {carbs:"var(--carbs)",fiber:"var(--fiber)",protein:"var(--protein)",fat:"var(--fat)"};
 const defaultGoals = {kcal:2400,protein:160,carbs:250,fat:75,fiber:30};
 
-let state = JSON.parse(localStorage.getItem("nutritrack_v1") || "null") || {goals:defaultGoals,days:{}};
-state.goals = {...defaultGoals,...state.goals};
+let state = {goals:{...defaultGoals},days:{}};
+try {
+  const raw = localStorage.getItem("nutritrack_v1");
+  if (raw) { const parsed = JSON.parse(raw); if (parsed && typeof parsed === "object") state = parsed; }
+} catch (e) {
+  try { localStorage.removeItem("nutritrack_v1"); } catch (_) {}
+}
+state.goals = {...defaultGoals,...(state.goals||{})};
+state.days = state.days || {};
 let viewDate = new Date();
 viewDate.setHours(12,0,0,0);
 let selectedDate = keyFor(new Date());
@@ -227,40 +297,36 @@ function pct(v,g){ return g>0 ? Math.min(1,v/g) : 0; }
 
 function renderCalendar(){
   const y=viewDate.getFullYear(), m=viewDate.getMonth();
-  document.getElementById("monthTitle").textContent = new Intl.DateTimeFormat("es-ES",{month:"long",year:"numeric"}).format(viewDate).replace(/^./,c=>c.toUpperCase());
-  const cal=document.getElementById("calendar"); cal.innerHTML="";
-  const first=new Date(y,m,1); let offset=(first.getDay()+6)%7;
+  const monthSel=document.getElementById("monthSelect"), yearSel=document.getElementById("yearSelect");
+  const months=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+  monthSel.innerHTML="";
+  months.forEach((name,i)=>{const o=document.createElement("option");o.value=String(i);o.textContent=name;o.selected=i===m;monthSel.appendChild(o);});
+  yearSel.innerHTML="";
+  for(let yy=y-10;yy<=y+10;yy++){const o=document.createElement("option");o.value=String(yy);o.textContent=String(yy);o.selected=yy===y;yearSel.appendChild(o);}
+
+  const cal=document.getElementById("calendar");
+  cal.innerHTML="";
+  const first=new Date(y,m,1,12);
+  const offset=(first.getDay()+6)%7;
   const days=new Date(y,m+1,0).getDate();
-  for(let i=0;i<offset;i++){ const e=document.createElement("div"); e.className="day empty"; cal.appendChild(e); }
   const todayKey=keyFor(new Date());
+
+  for(let i=0;i<offset;i++){
+    const e=document.createElement("div"); e.className="day empty"; cal.appendChild(e);
+  }
   for(let d=1;d<=days;d++){
-    const date=new Date(y,m,d,12), key=keyFor(date), cell=document.createElement("button");
-    cell.className="day"+(key===todayKey?" today":"")+(key===selectedDate?" selected":"");
-    const svg=document.createElementNS("http://www.w3.org/2000/svg","http://www.w3.org/2000/svg");
-    svg.setAttribute("viewBox","0 0 100 100");
-    const total=dayTotals(getDay(key)), C=2*Math.PI*34;
-    const bg=document.createElementNS("http://www.w3.org/2000/svg","circle");
-    bg.setAttribute("cx","50");bg.setAttribute("cy","50");bg.setAttribute("r","34");bg.setAttribute("class","track");svg.appendChild(bg);
-    const vals=[["carbs","var(--carbs)"],["fiber","var(--fiber)"],["protein","var(--protein)"],["fat","var(--fat)"]];
-    let offsetArc=0;
-    vals.forEach(([k,col])=>{
-      const arc=document.createElementNS("http://www.w3.org/2000/svg","circle");
-      arc.setAttribute("cx","50");arc.setAttribute("cy","50");arc.setAttribute("r","34");arc.setAttribute("class","arc");
-      arc.style.stroke=col;
-      const quarter=C/4-2;
-      const visible=quarter*pct(total[k],state.goals[k]);
-      arc.setAttribute("stroke-dasharray",`${visible} ${C-visible}`);
-      arc.setAttribute("stroke-dashoffset",String(-offsetArc));
-      svg.appendChild(arc); offsetArc+=C/4;
-    });
-    cell.appendChild(svg);
-    const n=document.createElement("span");n.className="day-number";n.textContent=d;cell.appendChild(n);
-    cell.addEventListener("click",()=>openDay(key));
+    const date=new Date(y,m,d,12), k=keyFor(date);
+    const cell=document.createElement("button");
+    cell.type="button";
+    cell.className="day"+(k===todayKey?" today":"")+(k===selectedDate?" selected":"");
+    const has=state.days[k] && state.days[k].meals && dayTotals(state.days[k]).kcal>0;
+    if(has) cell.classList.add("has-data");
+    const n=document.createElement("span"); n.className="day-number"; n.textContent=String(d); cell.appendChild(n);
+    cell.addEventListener("click",function(){openDay(k);});
     cal.appendChild(cell);
   }
-  document.getElementById("monthEmpty").style.display=Object.keys(state.days).length?"none":"block";
+  document.getElementById("monthEmpty").style.display="none";
 }
-
 function formatDate(key){
   const d=new Date(key+"T12:00:00");
   return new Intl.DateTimeFormat("es-ES",{weekday:"short",day:"numeric",month:"short",year:"numeric"}).format(d).replace(/\./g,"");
@@ -336,8 +402,24 @@ function openSettings(){
 }
 document.getElementById("prevMonth").onclick=()=>{viewDate.setMonth(viewDate.getMonth()-1);renderCalendar()};
 document.getElementById("nextMonth").onclick=()=>{viewDate.setMonth(viewDate.getMonth()+1);renderCalendar()};
+document.getElementById("monthSelect").addEventListener("change",e=>{
+  viewDate=new Date(viewDate.getFullYear(),Number(e.target.value),1,12);
+  renderCalendar();
+});
+document.getElementById("yearSelect").addEventListener("change",e=>{
+  viewDate=new Date(Number(e.target.value),viewDate.getMonth(),1,12);
+  renderCalendar();
+});
 document.getElementById("backBtn").onclick=backMonth;
 document.getElementById("todayBtn").onclick=()=>openDay(keyFor(new Date()));
+
+function moveDay(amount){
+  const d=new Date(selectedDate+"T12:00:00");
+  d.setDate(d.getDate()+amount);
+  openDay(keyFor(d));
+}
+document.getElementById("prevDay").onclick=()=>moveDay(-1);
+document.getElementById("nextDay").onclick=()=>moveDay(1);
 document.getElementById("settingsBtn").onclick=openSettings;
 document.getElementById("closeSettings").onclick=()=>document.getElementById("settingsPanel").classList.remove("open");
 document.getElementById("cancelSettings").onclick=()=>document.getElementById("settingsPanel").classList.remove("open");
@@ -363,7 +445,7 @@ document.getElementById("importFile").addEventListener("change",e=>{
     try{
       const imported=JSON.parse(reader.result);
       if(!imported.goals||!imported.days)throw new Error();
-      state=imported;state.goals={...defaultGoals,...state.goals};save();renderCalendar();
+      state=imported;state.goals={...defaultGoals,...(state.goals||{})};state.days=state.days||{};save();renderCalendar();
       if(document.getElementById("dayScreen").classList.contains("active"))renderDay();
       alert("Datos importados correctamente.");
     }catch(err){alert("El archivo no parece ser un backup válido de NutriTrack.");}
