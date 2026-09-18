@@ -78,7 +78,7 @@ textarea::placeholder{color:#66666d}
 .parse-status{font-size:11px;color:var(--muted)}
 .small-btn{border:1px solid #3a3a40;background:#26262b;border-radius:9px;padding:7px 10px;font-size:11px;cursor:pointer}
 .clear{color:#ff6970}
-.settings-panel{position:fixed;z-index:20;inset:0;background:rgba(0,0,0,.72);display:none;align-items:flex-end}
+.settings-panel{position:fixed;z-index:1000;inset:0;background:rgba(0,0,0,.72);display:none;align-items:flex-end}
 .settings-panel.open{display:flex}
 .sheet{background:#18181b;border-radius:20px 20px 0 0;width:100%;padding:18px 18px calc(20px + var(--safe-bottom));border-top:1px solid #343438;max-height:88vh;overflow:auto}
 .sheet-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
@@ -122,7 +122,7 @@ body{touch-action:pan-y}
 .day-header{position:fixed;top:0;left:50%;transform:translateX(-50%);width:min(820px,calc(100% - 32px));z-index:100;background:var(--bg);padding:8px 0 12px;padding-top:calc(8px + var(--safe-top));min-height:104px;}
 #dayScreen{padding-top:118px}
 .day-header .brand{font-size:22px;font-weight:700;line-height:1;position:absolute;left:50%;transform:translateX(-50%);top:calc(var(--safe-top) + 3px);}
-.day-controls{display:grid;grid-template-columns:42px minmax(0,1fr) 42px;align-items:center;gap:4px;padding-top:38px;}
+.day-controls{display:grid;grid-template-columns:40px minmax(0,1fr) 40px;align-items:center;gap:4px;padding-top:38px;width:100%;margin:0 auto;}
 .day-header .date{font-size:20px;font-weight:700;text-align:center;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .day-back{position:absolute;left:0;top:calc(var(--safe-top) + 1px);width:40px;height:40px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:#0aa8ff;font-size:30px;line-height:34px;padding:0;cursor:pointer;z-index:2}
 .day-arrow{width:40px;height:40px;border:0;background:none;color:#0aa8ff;font-size:32px;line-height:1;padding:0;cursor:pointer;justify-self:center}
@@ -447,14 +447,26 @@ function renderDay(){
       setTimeout(()=>{const t=[...document.querySelectorAll("textarea")].find(x=>x.value===ta.value);if(t){t.focus();t.setSelectionRange(t.value.length,t.value.length)}},0);
     });
     wrap.querySelector(".clear").addEventListener("click",()=>{day.meals[name]={text:"",data:{kcal:0,protein:0,carbs:0,fat:0,fiber:0},parsed:false};save();renderDay();});
-    wrap.querySelector(".paste").addEventListener("click",async(e)=>{
+    const pasteBtn=wrap.querySelector(".paste");
+    pasteBtn.addEventListener("pointerdown",e=>{e.preventDefault();e.stopPropagation();});
+    pasteBtn.addEventListener("click",async(e)=>{
       e.preventDefault();
       e.stopPropagation();
       try{
-        if(!navigator.clipboard || !navigator.clipboard.readText) throw new Error("Clipboard API unavailable");
         const text=await navigator.clipboard.readText();
-        if(text){ta.value=text;ta.dispatchEvent(new Event("input",{bubbles:true}));}
-      }catch(err){}
+        if(text){
+          data.text=text;
+          ta.value=text;
+          const parsed=extractTotals(text);
+          if(parsed){data.data=parsed;data.parsed=true;}
+          else {data.data={kcal:0,protein:0,carbs:0,fat:0,fiber:0};data.parsed=false;}
+          day.meals[name]=data;
+          save();
+          renderDay();
+        }
+      }catch(err){
+        // Clipboard access is browser-controlled; do not open a fallback paste menu.
+      }
     });
     meals.appendChild(wrap);
   });
