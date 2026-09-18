@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#0b0b0d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -101,12 +101,48 @@ textarea::placeholder{color:#66666d}
 .calendar{width:100%;min-height:330px;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px}
 .day{height:68px;border:1px solid var(--line);background:var(--panel);border-radius:12px;overflow:hidden}
 .day.empty{background:transparent;border:0}
-.day svg{display:none}
 .day-number{font-size:17px;color:var(--text)}
 .day.today{border:2px solid var(--accent)}
 .day.selected{box-shadow:inset 0 0 0 2px var(--accent)}
 .day.has-data{background:var(--panel2)}
 @media(min-width:700px){.day{height:82px}}
+
+/* Final UI refinements */
+html,body{width:100%;max-width:100%;overflow-x:hidden;overscroll-behavior-x:none}
+body{touch-action:pan-y}
+.app{width:100%;max-width:820px;overflow-x:hidden}
+.sticky-nav{position:sticky;top:0;z-index:10;background:var(--bg);padding-top:var(--safe-top);margin-top:calc(-1 * var(--safe-top));padding-bottom:6px}
+.calendar-nav-sticky{position:sticky;top:0;z-index:10;background:var(--bg)}
+.day-header{position:sticky;top:0;z-index:10;background:var(--bg);padding-top:calc(8px + var(--safe-top));margin-top:calc(-1 * var(--safe-top));padding-bottom:12px}
+.chart-wrap{touch-action:pan-x pan-y;user-select:none;-webkit-user-select:none}
+.chart-wrap.swiping{cursor:grabbing}
+.chart-arc{stroke-linecap:butt}
+.day .mini-donut{display:block;position:absolute;inset:6px;width:calc(100% - 12px);height:calc(100% - 12px);transform:rotate(-90deg);pointer-events:none}
+.day .mini-track{fill:none;stroke:#29292d;stroke-width:7}
+.day .mini-arc{fill:none;stroke-width:7;stroke-linecap:butt}
+.day-number{z-index:5}
+.day.has-data{background:var(--panel2)}
+
+.targets{margin:14px 0 20px;padding:16px 12px;background:var(--panel);border-radius:16px;border:1px solid var(--line)}
+.target-section-title{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:800;margin:0 0 10px 2px}
+.target-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.target-card{min-width:0;text-align:center}
+.target-card .target-label{font-size:10px;font-weight:750;line-height:1.1;min-height:24px;display:flex;align-items:flex-end;justify-content:center;padding:0 1px}
+.target-card .target-box{margin-top:5px;border:1px solid color-mix(in srgb,var(--metric-color) 50%,var(--line));background:color-mix(in srgb,var(--metric-color) 9%,var(--panel2));border-radius:10px;padding:7px 2px;font-weight:750;font-size:13px;line-height:1.1}
+.target-card .target-unit{font-size:9px;color:var(--muted);font-weight:600}
+.target-card .consume-box{margin-top:5px;border:1px solid color-mix(in srgb,var(--metric-color) 50%,var(--line));background:color-mix(in srgb,var(--metric-color) 9%,var(--panel2));border-radius:10px;padding:7px 2px;font-size:12px;font-weight:800;line-height:1.25;min-height:45px}
+.target-card .consume-value{display:block;color:var(--text)}
+.target-card .delta{display:block;font-size:10px;margin-top:2px;font-weight:800}
+.target-card .delta.good{color:var(--good)}.target-card .delta.over{color:var(--danger)}
+.target-divider{height:14px}
+.meal-bottom{justify-content:flex-end}
+.meal-actions{display:flex;align-items:center;gap:7px}
+.paste{color:var(--accent)}
+@media(max-width:430px){
+  .target-grid{gap:4px}
+  .target-card .target-label{font-size:9px}
+  .target-card .target-box,.target-card .consume-box{font-size:11px;border-radius:9px}
+}
 </style>
 </head>
 <body>
@@ -116,7 +152,7 @@ textarea::placeholder{color:#66666d}
       <h1>NutriTrack</h1>
       <button class="icon-btn" id="settingsBtn" aria-label="Objetivos y datos">⚙</button>
     </header>
-    <div class="month-nav">
+    <div class="month-nav calendar-nav-sticky">
       <button class="month-arrow" id="prevMonth" aria-label="Mes anterior">‹</button>
       <div class="month-pickers">
         <select id="monthSelect" aria-label="Mes">
@@ -189,7 +225,6 @@ textarea::placeholder{color:#66666d}
       <div class="chart-wrap">
         <svg viewBox="0 0 200 200" aria-label="Progreso nutricional">
           <circle class="chart-bg" cx="100" cy="100" r="72"></circle>
-          <circle class="chart-bg" cx="100" cy="100" r="72" stroke-dasharray="104 348" stroke-dashoffset="0" opacity=".55"></circle>
           <circle id="arcCarbs" class="chart-arc" cx="100" cy="100" r="72" style="stroke:var(--carbs)"></circle>
           <circle id="arcFiber" class="chart-arc" cx="100" cy="100" r="72" style="stroke:var(--fiber)"></circle>
           <circle id="arcProtein" class="chart-arc" cx="100" cy="100" r="72" style="stroke:var(--protein)"></circle>
@@ -204,7 +239,10 @@ textarea::placeholder{color:#66666d}
     </div>
 
     <div class="targets">
-      <div class="target-title">Objetivos actuales · consumido / objetivo · diferencia</div>
+      <div class="target-section-title">OBJETIVO ACTUAL</div>
+      <div class="target-grid" id="goalGrid"></div>
+      <div class="target-divider"></div>
+      <div class="target-section-title">CONSUMO</div>
       <div class="target-grid" id="targetGrid"></div>
     </div>
 
@@ -298,32 +336,27 @@ function pct(v,g){ return g>0 ? Math.min(1,v/g) : 0; }
 function renderCalendar(){
   const y=viewDate.getFullYear(), m=viewDate.getMonth();
   const monthSel=document.getElementById("monthSelect"), yearSel=document.getElementById("yearSelect");
-  const months=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-  monthSel.innerHTML="";
-  months.forEach((name,i)=>{const o=document.createElement("option");o.value=String(i);o.textContent=name;o.selected=i===m;monthSel.appendChild(o);});
-  yearSel.innerHTML="";
-  for(let yy=y-10;yy<=y+10;yy++){const o=document.createElement("option");o.value=String(yy);o.textContent=String(yy);o.selected=yy===y;yearSel.appendChild(o);}
-
-  const cal=document.getElementById("calendar");
-  cal.innerHTML="";
-  const first=new Date(y,m,1,12);
-  const offset=(first.getDay()+6)%7;
-  const days=new Date(y,m+1,0).getDate();
-  const todayKey=keyFor(new Date());
-
-  for(let i=0;i<offset;i++){
-    const e=document.createElement("div"); e.className="day empty"; cal.appendChild(e);
+  monthSel.value=String(m); yearSel.value=String(y);
+  if(monthSel.value!==String(m)){
+    monthSel.innerHTML="";
+    ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"].forEach((name,i)=>monthSel.insertAdjacentHTML("beforeend",`<option value="${i}">${name}</option>`));
+    monthSel.value=String(m);
   }
+  if(yearSel.value!==String(y)){
+    yearSel.innerHTML="";
+    for(let yy=y-10;yy<=y+10;yy++)yearSel.insertAdjacentHTML("beforeend",`<option value="${yy}">${yy}</option>`);
+    yearSel.value=String(y);
+  }
+  const cal=document.getElementById("calendar"); cal.innerHTML="";
+  const first=new Date(y,m,1,12), offset=(first.getDay()+6)%7, days=new Date(y,m+1,0).getDate(), todayKey=keyFor(new Date());
+  for(let i=0;i<offset;i++){const e=document.createElement("div");e.className="day empty";cal.appendChild(e)}
   for(let d=1;d<=days;d++){
-    const date=new Date(y,m,d,12), k=keyFor(date);
-    const cell=document.createElement("button");
-    cell.type="button";
-    cell.className="day"+(k===todayKey?" today":"")+(k===selectedDate?" selected":"");
-    const has=state.days[k] && state.days[k].meals && dayTotals(state.days[k]).kcal>0;
-    if(has) cell.classList.add("has-data");
-    const n=document.createElement("span"); n.className="day-number"; n.textContent=String(d); cell.appendChild(n);
-    cell.addEventListener("click",function(){openDay(k);});
-    cal.appendChild(cell);
+    const k=keyFor(new Date(y,m,d,12)), cell=document.createElement("button");
+    cell.type="button"; cell.className="day"+(k===todayKey?" today":"")+(k===selectedDate?" selected":"");
+    const day=state.days[k], total=day&&day.meals?dayTotals(day):{kcal:0,protein:0,carbs:0,fat:0,fiber:0};
+    if(total.kcal>0)cell.classList.add("has-data");
+    cell.innerHTML=miniDonutSVG(total,state.goals)+`<span class="day-number">${d}</span>`;
+    cell.addEventListener("click",()=>openDay(k)); cal.appendChild(cell);
   }
   document.getElementById("monthEmpty").style.display="none";
 }
@@ -331,25 +364,40 @@ function formatDate(key){
   const d=new Date(key+"T12:00:00");
   return new Intl.DateTimeFormat("es-ES",{weekday:"short",day:"numeric",month:"short",year:"numeric"}).format(d).replace(/\./g,"");
 }
-function setArc(id, progress, startFraction){
-  const circle=document.getElementById(id), C=2*Math.PI*72, quarter=C/4-5, visible=quarter*Math.min(1,progress);
-  circle.setAttribute("stroke-dasharray",`${visible} ${C-visible}`);
-  circle.setAttribute("stroke-dashoffset",String(-(startFraction*C/4)));
+function setArcGroup(values){
+  const ids=["arcCarbs","arcFiber","arcProtein","arcFat"];
+  const C=2*Math.PI*72;
+  const gap=7;
+  const maxSeg=(C-gap)/4;
+  let cursor=0;
+  values.forEach((progress,i)=>{
+    const len=maxSeg*Math.min(1,Math.max(0,progress));
+    const circle=document.getElementById(ids[i]);
+    circle.setAttribute("stroke-dasharray",`${len} ${C-len}`);
+    circle.setAttribute("stroke-dashoffset",String(-cursor));
+    cursor+=len;
+  });
 }
+
+function miniDonutSVG(total, goals){
+  const C=2*Math.PI*36, gap=5, maxSeg=(C-gap)/4;
+  const vals=[pct(total.carbs,goals.carbs),pct(total.fiber,goals.fiber),pct(total.protein,goals.protein),pct(total.fat,goals.fat)];
+  const colors=["var(--carbs)","var(--fiber)","var(--protein)","var(--fat)"];
+  let cursor=0;
+  const arcs=vals.map((v,i)=>{
+    const len=maxSeg*Math.min(1,Math.max(0,v)), off=-cursor; cursor+=len;
+    return `<circle class="mini-arc" cx="40" cy="40" r="36" style="stroke:${colors[i]}" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${off}"></circle>`;
+  }).join("");
+  return `<svg class="mini-donut" viewBox="0 0 80 80" aria-hidden="true"><circle class="mini-track" cx="40" cy="40" r="36"></circle>${arcs}</svg>`;
+}
+
 function renderDay(){
   const day=getDay(selectedDate), total=dayTotals(day);
   document.getElementById("dayTitle").textContent=formatDate(selectedDate);
   document.getElementById("kcalValue").textContent=fmt(total.kcal,0);
-  setArc("arcCarbs",pct(total.carbs,state.goals.carbs),0);
-  setArc("arcFiber",pct(total.fiber,state.goals.fiber),1);
-  setArc("arcProtein",pct(total.protein,state.goals.protein),2);
-  setArc("arcFat",pct(total.fat,state.goals.fat),3);
+  setArcGroup([pct(total.carbs,state.goals.carbs),pct(total.fiber,state.goals.fiber),pct(total.protein,state.goals.protein),pct(total.fat,state.goals.fat)]);
 
-  document.getElementById("macroInline").innerHTML =
-    `<span style="color:var(--carbs)">C <b>${fmt(total.carbs)} g</b></span>`+
-    `<span style="color:var(--fiber)">F <b>${fmt(total.fiber)} g</b></span>`+
-    `<span style="color:var(--protein)">P <b>${fmt(total.protein)} g</b></span>`+
-    `<span style="color:var(--fat)">G <b>${fmt(total.fat)} g</b></span>`;
+  document.getElementById("macroInline").innerHTML="";
 
   const rows=[
     ["Kcal",total.kcal,state.goals.kcal,"kcal"],
@@ -358,10 +406,14 @@ function renderDay(){
     ["Grasa",total.fat,state.goals.fat,"g"],
     ["Fibra",total.fiber,state.goals.fiber,"g"]
   ];
-  document.getElementById("targetGrid").innerHTML=rows.map(([label,v,g,u])=>{
-    const diff=v-g, cls=diff>0?"over":"good";
-    const sign=diff>0?"+":"";
-    return `<div class="target-row"><span class="label">${label}</span><span>${fmt(v)} / ${fmt(g)} ${u} · <b class="delta ${cls}">${sign}${fmt(diff)} ${u}</b></span></div>`;
+  const colors=["var(--carbs)","var(--fiber)","var(--protein)","var(--fat)","var(--carbs)"];
+  document.getElementById("goalGrid").innerHTML=rows.map(([label,v,g,u],i)=>{
+    const metric=label.toLowerCase().replace("á","a");
+    return `<div class="target-card" style="--metric-color:${colors[i]}"><div class="target-label">${label}</div><div class="target-box">${fmt(g, label==="Kcal"?0:1)}<span class="target-unit">${u}</span></div></div>`;
+  }).join("");
+  document.getElementById("targetGrid").innerHTML=rows.map(([label,v,g,u],i)=>{
+    const diff=v-g, cls=diff>0?"over":"good", sign=diff>0?"+":"";
+    return `<div class="target-card" style="--metric-color:${colors[i]}"><div class="target-label">${label}</div><div class="consume-box"><span class="consume-value">${fmt(v,label==="Kcal"?0:1)}<span class="target-unit"> ${u}</span></span><span class="delta ${cls}">${sign}${fmt(diff,label==="Kcal"?0:1)} ${u}</span></div></div>`;
   }).join("");
 
   const meals=document.getElementById("meals");meals.innerHTML="";
@@ -370,7 +422,7 @@ function renderDay(){
     const wrap=document.createElement("div");wrap.className="meal";
     wrap.innerHTML=`<div class="meal-top"><span class="meal-title">${name}</span><span class="meal-total">${data.parsed?fmt(data.data.kcal,0)+" kcal":"Sin datos"}</span></div>
       <textarea placeholder="Pegá aquí la tabla del chat nutricional…"></textarea>
-      <div class="meal-bottom"><span class="parse-status">${data.parsed?"✓ Datos interpretados":"Esperando datos"}</span><button class="small-btn clear">Borrar</button></div>`;
+      <div class="meal-bottom"><span class="parse-status">${data.parsed?"✓ Datos interpretados":"Esperando datos"}</span><div class="meal-actions"><button class="small-btn paste" type="button">Pegar</button><button class="small-btn clear" type="button">Borrar</button></div></div>`;
     const ta=wrap.querySelector("textarea");ta.value=data.text||"";
     ta.addEventListener("input",()=>{
       data.text=ta.value;
@@ -381,6 +433,10 @@ function renderDay(){
       setTimeout(()=>{const t=[...document.querySelectorAll("textarea")].find(x=>x.value===ta.value);if(t){t.focus();t.setSelectionRange(t.value.length,t.value.length)}},0);
     });
     wrap.querySelector(".clear").addEventListener("click",()=>{day.meals[name]={text:"",data:{kcal:0,protein:0,carbs:0,fat:0,fiber:0},parsed:false};save();renderDay();});
+    wrap.querySelector(".paste").addEventListener("click",async()=>{
+      try{const text=await navigator.clipboard.readText();if(text){ta.value=text;ta.dispatchEvent(new Event("input",{bubbles:true}));}}
+      catch(e){ta.focus();document.execCommand("paste");}
+    });
     meals.appendChild(wrap);
   });
 }
@@ -452,6 +508,11 @@ document.getElementById("importFile").addEventListener("change",e=>{
   };reader.readAsText(file);e.target.value="";
 });
 document.getElementById("settingsPanel").addEventListener("click",e=>{if(e.target.id==="settingsPanel")e.currentTarget.classList.remove("open")});
+
+let swipeStartX=0,swipeStartY=0,swipeTracking=false;
+const chart=document.querySelector(".chart-wrap");
+chart.addEventListener("touchstart",e=>{const t=e.changedTouches[0];swipeStartX=t.clientX;swipeStartY=t.clientY;swipeTracking=true;},{passive:true});
+chart.addEventListener("touchend",e=>{if(!swipeTracking)return;swipeTracking=false;const t=e.changedTouches[0],dx=t.clientX-swipeStartX,dy=t.clientY-swipeStartY;if(Math.abs(dx)>65&&Math.abs(dx)>Math.abs(dy)*1.25)moveDay(dx<0?1:-1);},{passive:true});
 
 renderCalendar();
 </script>
