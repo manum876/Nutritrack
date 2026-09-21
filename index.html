@@ -74,6 +74,17 @@ h1{font-size:22px;margin:0;font-weight:700}
 .meal-total{font-size:11px;color:var(--muted)}
 textarea{display:block;width:100%;min-height:116px;resize:vertical;background:#101012;border:0;border-top:1px solid var(--line);color:var(--text);padding:12px 13px;outline:none;line-height:1.45;font-size:13px}
 textarea::placeholder{color:#66666d}
+.nutrition-grid{height:116px;min-height:116px;max-height:116px;overflow:hidden;background:#101012;border-top:1px solid var(--line);padding:6px}
+.nutrition-grid table{width:100%;height:100%;border-collapse:collapse;table-layout:fixed;font-size:9.5px;line-height:1.15;color:var(--text)}
+.nutrition-grid th,.nutrition-grid td{border:1px solid #303036;padding:4px 3px;vertical-align:middle;overflow:hidden;word-break:break-word;overflow-wrap:anywhere}
+.nutrition-grid th{background:#202025;color:#bdbdc5;font-weight:700;text-align:left}
+.nutrition-grid td{background:#121214;outline:none}
+.nutrition-grid td:focus{box-shadow:inset 0 0 0 1px var(--accent);background:#18181b}
+.nutrition-grid th:nth-child(1),.nutrition-grid td:nth-child(1){width:24%}
+.nutrition-grid th:nth-child(2),.nutrition-grid td:nth-child(2){width:16%}
+.nutrition-grid th:nth-child(n+3),.nutrition-grid td:nth-child(n+3){width:12%}
+.nutrition-grid .total-row td{font-weight:700;background:#1b1b20}
+.nutrition-grid .placeholder{color:#66666d}
 .meal-bottom{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-top:1px solid var(--line);gap:8px}
 .parse-status{font-size:11px;color:var(--muted)}
 .small-btn{border:1px solid #3a3a40;background:#26262b;border-radius:9px;padding:7px 10px;font-size:11px;cursor:pointer}
@@ -304,7 +315,13 @@ viewDate.setHours(12,0,0,0);
 let selectedDate = keyFor(new Date());
 
 function keyFor(d){ return d.toISOString().slice(0,10); }
-function parseNum(s){ return Number(String(s).replace(",", ".")); }
+function parseNum(s){
+  let v=String(s).trim().replace(/\s/g,"");
+  if(v.includes(",") && v.includes(".")) v=v.replace(/\./g,"").replace(",",".");
+  else if(v.includes(",")) v=v.replace(",",".");
+  else if(/^\d+\.\d{3}$/.test(v)) v=v.replace(".","");
+  const n=Number(v); return Number.isFinite(n)?n:0;
+}
 function fmt(n, decimals=1){
   if (!Number.isFinite(n)) return "0";
   return decimals===0 ? Math.round(n).toLocaleString("es-ES") : Number(n.toFixed(decimals)).toLocaleString("es-ES",{maximumFractionDigits:decimals});
@@ -317,27 +334,50 @@ function getDay(key){ if(!state.days[key]) state.days[key]=blankDay(); return st
 function save(){ localStorage.setItem("nutritrack_v1",JSON.stringify(state)); }
 
 function extractTotals(text){
-  // Preferred: the TOTAL row produced by the nutrition-tracking chat.
-  const normalized = text.replace(/\r/g,"").replace(/\u00a0/g," ");
+  const normalized = String(text||"").replace(/\r/g,"").replace(/\u00a0/g," ").trim();
+  if(!normalized) return null;
   const lines = normalized.split("\n").map(x=>x.trim()).filter(Boolean);
+
+  // Primary format: TSV table with exactly 7 columns:
+  // Alimento | Cantidad | kcal | Proteínas | Carbohidratos | Grasas | Fibra
+  const rows = lines.map(line=>line.split("\t").map(x=>x.trim()));
+  const isTable = rows.length >= 2 && rows.some(r=>r.length >= 7);
+  if(isTable){
+    const totalRow = rows.find(r=>/^TOTAL$/i.test(r[0]||""));
+    const source = totalRow || rows.slice(1).find(r=>r.length>=7 && String(r[0]||"").trim() && !/^TOTAL$/i.test(r[0]||""));
+    if(source){
+      const nums = source.slice(2,7).map(parseNum);
+      if(nums.length===5 && nums.every(n=>Number.isFinite(n))){
+        // If there is a TOTAL row, use it. Otherwise this is the single-food case.
+        // For multiple food rows without TOTAL, sum every food row below.
+        if(totalRow) return {kcal:nums[0],protein:nums[1],carbs:nums[2],fat:nums[3],fiber:nums[4]};
+        const foodRows = rows.slice(1).filter(r=>r.length>=7 && !/^TOTAL$/i.test(r[0]||""));
+        if(foodRows.length===1) return {kcal:nums[0],protein:nums[1],carbs:nums[2],fat:nums[3],fiber:nums[4]};
+        const sum={kcal:0,protein:0,carbs:0,fat:0,fiber:0};
+        let found=0;
+        for(const r of foodRows){
+          const n=r.slice(2,7).map(parseNum);
+          if(n.length===5 && n.every(v=>Number.isFinite(v))){sum.kcal+=n[0];sum.protein+=n[1];sum.carbs+=n[2];sum.fat+=n[3];sum.fiber+=n[4];found++;}
+        }
+        return found ? sum : null;
+      }
+    }
+  }
+
+  // Legacy/plain-text fallback.
   const totalLine = lines.find(l => /\bTOTAL\b/i.test(l));
   if(totalLine){
     const kcal = totalLine.match(/([0-9]+(?:[.,][0-9]+)?)\s*kcal/i);
     const grams = [...totalLine.matchAll(/([0-9]+(?:[.,][0-9]+)?)\s*g/gi)].map(m=>parseNum(m[1]));
-    if(kcal && grams.length>=4){
-      return {kcal:parseNum(kcal[1]),protein:grams[0],carbs:grams[1],fat:grams[2],fiber:grams[3]};
-    }
+    if(kcal && grams.length>=4) return {kcal:parseNum(kcal[1]),protein:grams[0],carbs:grams[1],fat:grams[2],fiber:grams[3]};
   }
 
-  // Fallback: recognize rows with the five numeric nutrition columns.
   let sum={kcal:0,protein:0,carbs:0,fat:0,fiber:0}, found=0;
   for(const line of lines){
     if(/^(total|alimento|cantidad)/i.test(line)) continue;
     const kcalM=line.match(/([0-9]+(?:[.,][0-9]+)?)\s*kcal/i);
     const g=[...line.matchAll(/([0-9]+(?:[.,][0-9]+)?)\s*g/gi)].map(m=>parseNum(m[1]));
-    if(kcalM && g.length>=4){
-      sum.kcal+=parseNum(kcalM[1]); sum.protein+=g[0]; sum.carbs+=g[1]; sum.fat+=g[2]; sum.fiber+=g[3]; found++;
-    }
+    if(kcalM && g.length>=4){sum.kcal+=parseNum(kcalM[1]);sum.protein+=g[0];sum.carbs+=g[1];sum.fat+=g[2];sum.fiber+=g[3];found++;}
   }
   return found ? sum : null;
 }
@@ -405,72 +445,114 @@ function miniDonutSVG(total, goals){
   return `<svg class="mini-donut" viewBox="0 0 80 80" aria-hidden="true"><circle class="mini-track" cx="40" cy="40" r="36"></circle>${arcs}</svg>`;
 }
 
+function tableRowsFromText(text){
+  const normalized=String(text||"").replace(/\r/g,"").trim();
+  if(!normalized) return [
+    ["Alimento","Cantidad","kcal","Proteínas","Carbohidratos","Grasas","Fibra"],
+    ["","","","","","",""],
+    ["TOTAL","","","","","",""]
+  ];
+  const rows=normalized.split("\n").map(line=>line.split("\t"));
+  while(rows.length<3) rows.push(new Array(7).fill(""));
+  rows[0]=rows[0].slice(0,7); while(rows[0].length<7) rows[0].push("");
+  rows.forEach((r,i)=>{rows[i]=r.slice(0,7);while(rows[i].length<7)rows[i].push("");});
+  return rows;
+}
+function tableText(table){
+  return [...table.querySelectorAll("tr")].map(tr=>[...tr.children].map(c=>c.textContent.replace(/\s*\n\s*/g," ").trim()).join("\t")).join("\n");
+}
+function renderNutritionTable(container,text){
+  const rows=tableRowsFromText(text);
+  const table=document.createElement("table");
+  const thead=document.createElement("thead"), tbody=document.createElement("tbody");
+  rows.forEach((row,ri)=>{
+    const tr=document.createElement("tr");
+    if(ri===rows.length-1 || /^TOTAL$/i.test(row[0])) tr.className="total-row";
+    row.forEach((value,ci)=>{
+      const cell=document.createElement(ri===0?"th":"td");
+      cell.textContent=value;
+      if(ri>0){cell.contentEditable="true";cell.spellcheck=false;cell.dataset.row=ri;cell.dataset.col=ci;}
+      tr.appendChild(cell);
+    });
+    (ri===0?thead:tbody).appendChild(tr);
+  });
+  table.append(thead,tbody); container.replaceChildren(table); return table;
+}
+function updateMealFromTable(name,day,wrap,table){
+  const text=tableText(table); const data=day.meals[name];
+  data.text=text;
+  const parsed=extractTotals(text);
+  if(parsed){data.data=parsed;data.parsed=true;}else{data.data={kcal:0,protein:0,carbs:0,fat:0,fiber:0};data.parsed=false;}
+  day.meals[name]=data; save();
+  wrap.querySelector(".parse-status").textContent=data.parsed?"✓ Datos interpretados":"Esperando datos";
+  wrap.querySelector(".meal-total").textContent=data.parsed?fmt(data.data.kcal,0)+" kcal":"Sin datos";
+  refreshDaySummary();
+}
+function refreshDaySummary(){
+  const day=getDay(selectedDate), total=dayTotals(day);
+  document.getElementById("kcalValue").textContent=fmt(total.kcal,0);
+  setArcGroup([pct(total.carbs,state.goals.carbs),pct(total.fiber,state.goals.fiber),pct(total.protein,state.goals.protein),pct(total.fat,state.goals.fat)]);
+  const rows=[
+    ["Kcal",total.kcal,state.goals.kcal,"kcal"],["Proteína",total.protein,state.goals.protein,"g"],["Carbohidratos",total.carbs,state.goals.carbs,"g"],["Grasa",total.fat,state.goals.fat,"g"],["Fibra",total.fiber,state.goals.fiber,"g"]
+  ];
+  const colors=["var(--carbs)","var(--fiber)","var(--protein)","var(--fat)","var(--carbs)"];
+  document.getElementById("goalGrid").innerHTML=rows.map(([label,v,g,u],i)=>`<div class="target-card" style="--metric-color:${colors[i]}"><div class="target-label">${label}</div><div class="target-box">${fmt(g,label==="Kcal"?0:1)}<span class="target-unit">${u}</span></div></div>`).join("");
+  document.getElementById("targetGrid").innerHTML=rows.map(([label,v,g,u],i)=>{const diff=v-g,cls=diff>0?"over":"good",sign=diff>0?"+":"";return `<div class="target-card" style="--metric-color:${colors[i]}"><div class="target-label">${label}</div><div class="consume-box"><span class="consume-value">${fmt(v,label==="Kcal"?0:1)}<span class="target-unit"> ${u}</span></span><span class="delta ${cls}">${sign}${fmt(diff,label==="Kcal"?0:1)} ${u}</span></div></div>`}).join("");
+}
 function renderDay(){
   const day=getDay(selectedDate), total=dayTotals(day);
   document.getElementById("dayTitle").textContent=formatDate(selectedDate);
   document.getElementById("kcalValue").textContent=fmt(total.kcal,0);
   setArcGroup([pct(total.carbs,state.goals.carbs),pct(total.fiber,state.goals.fiber),pct(total.protein,state.goals.protein),pct(total.fat,state.goals.fat)]);
-
   document.getElementById("macroInline").innerHTML="";
-
-  const rows=[
-    ["Kcal",total.kcal,state.goals.kcal,"kcal"],
-    ["Proteína",total.protein,state.goals.protein,"g"],
-    ["Carbohidratos",total.carbs,state.goals.carbs,"g"],
-    ["Grasa",total.fat,state.goals.fat,"g"],
-    ["Fibra",total.fiber,state.goals.fiber,"g"]
-  ];
-  const colors=["var(--carbs)","var(--fiber)","var(--protein)","var(--fat)","var(--carbs)"];
-  document.getElementById("goalGrid").innerHTML=rows.map(([label,v,g,u],i)=>{
-    const metric=label.toLowerCase().replace("á","a");
-    return `<div class="target-card" style="--metric-color:${colors[i]}"><div class="target-label">${label}</div><div class="target-box">${fmt(g, label==="Kcal"?0:1)}<span class="target-unit">${u}</span></div></div>`;
-  }).join("");
-  document.getElementById("targetGrid").innerHTML=rows.map(([label,v,g,u],i)=>{
-    const diff=v-g, cls=diff>0?"over":"good", sign=diff>0?"+":"";
-    return `<div class="target-card" style="--metric-color:${colors[i]}"><div class="target-label">${label}</div><div class="consume-box"><span class="consume-value">${fmt(v,label==="Kcal"?0:1)}<span class="target-unit"> ${u}</span></span><span class="delta ${cls}">${sign}${fmt(diff,label==="Kcal"?0:1)} ${u}</span></div></div>`;
-  }).join("");
-
+  refreshDaySummary();
   const meals=document.getElementById("meals");meals.innerHTML="";
   MEALS.forEach(name=>{
     const data=day.meals[name]||{text:"",data:{kcal:0,protein:0,carbs:0,fat:0,fiber:0},parsed:false};
+    day.meals[name]=data;
     const wrap=document.createElement("div");wrap.className="meal";
-    wrap.innerHTML=`<div class="meal-top"><span class="meal-title">${name}</span><span class="meal-total">${data.parsed?fmt(data.data.kcal,0)+" kcal":"Sin datos"}</span></div>
-      <textarea placeholder="Pegá aquí la tabla del chat nutricional…"></textarea>
-      <div class="meal-bottom"><span class="parse-status">${data.parsed?"✓ Datos interpretados":"Esperando datos"}</span><div class="meal-actions"><button class="small-btn paste" type="button">Pegar</button><button class="small-btn clear" type="button">Borrar</button></div></div>`;
-    const ta=wrap.querySelector("textarea");ta.value=data.text||"";
-    ta.addEventListener("input",()=>{
-      data.text=ta.value;
-      const parsed=extractTotals(ta.value);
-      if(parsed){data.data=parsed;data.parsed=true;}else if(!ta.value.trim()){data.data={kcal:0,protein:0,carbs:0,fat:0,fiber:0};data.parsed=false;}else{data.data={kcal:0,protein:0,carbs:0,fat:0,fiber:0};data.parsed=false;}
-      day.meals[name]=data;save();renderDay();
-      // Keep focus/cursor after rerender.
-      setTimeout(()=>{const t=[...document.querySelectorAll("textarea")].find(x=>x.value===ta.value);if(t){t.focus();t.setSelectionRange(t.value.length,t.value.length)}},0);
+    wrap.innerHTML=`<div class="meal-top"><span class="meal-title">${name}</span><span class="meal-total">${data.parsed?fmt(data.data.kcal,0)+" kcal":"Sin datos"}</span></div><div class="nutrition-grid"></div><div class="meal-bottom"><span class="parse-status">${data.parsed?"✓ Datos interpretados":"Esperando datos"}</span><div class="meal-actions"><button class="small-btn paste" type="button">Pegar</button><button class="small-btn clear" type="button">Borrar</button></div></div>`;
+    meals.appendChild(wrap);
+    const grid=wrap.querySelector(".nutrition-grid"); const table=renderNutritionTable(grid,data.text);
+    table.addEventListener("input",e=>{if(e.target.matches("td"))updateMealFromTable(name,day,wrap,table);});
+    table.addEventListener("paste",e=>{
+      if(!e.target.matches("td"))return;
+      const text=e.clipboardData?.getData("text/plain")||"";
+      if(!text)return;
+      e.preventDefault();
+      const startRow=Math.max(1,Number(e.target.dataset.row)||1), startCol=Number(e.target.dataset.col)||0;
+      const pasted=text.replace(/\r/g,"").split("\n").map(r=>r.split("\t"));
+      const current=[...table.querySelectorAll("tbody tr")];
+      while(current.length<startRow+pasted.length-1){
+        const tr=document.createElement("tr"); for(let c=0;c<7;c++){const td=document.createElement("td");td.contentEditable="true";td.spellcheck=false;tr.appendChild(td);} table.tBodies[0].appendChild(tr); current.push(tr);
+      }
+      pasted.forEach((r,ri)=>r.slice(0,7-startCol).forEach((v,ci)=>{const td=current[startRow-1+ri]?.children[startCol+ci];if(td)td.textContent=v;}));
+      [...table.tBodies[0].rows].forEach((tr,i)=>tr.classList.toggle("total-row",/^TOTAL$/i.test(tr.cells[0]?.textContent.trim())||i===table.tBodies[0].rows.length-1));
+      updateMealFromTable(name,day,wrap,table);
     });
     wrap.querySelector(".clear").addEventListener("click",()=>{day.meals[name]={text:"",data:{kcal:0,protein:0,carbs:0,fat:0,fiber:0},parsed:false};save();renderDay();});
-    const pasteBtn=wrap.querySelector(".paste");
-    pasteBtn.addEventListener("pointerdown",e=>{e.preventDefault();e.stopPropagation();});
-    pasteBtn.addEventListener("click",async(e)=>{
-      e.preventDefault();
-      e.stopPropagation();
+    wrap.querySelector(".paste").addEventListener("click",async e=>{
+      e.preventDefault();e.stopPropagation();
       try{
         const text=await navigator.clipboard.readText();
-        if(text){
-          data.text=text;
-          ta.value=text;
-          const parsed=extractTotals(text);
-          if(parsed){data.data=parsed;data.parsed=true;}
-          else {data.data={kcal:0,protein:0,carbs:0,fat:0,fiber:0};data.parsed=false;}
-          day.meals[name]=data;
-          save();
-          renderDay();
-        }
-      }catch(err){
-        // Clipboard access is browser-controlled; do not open a fallback paste menu.
-      }
+        if(!text)return;
+        renderNutritionTable(grid,text);
+        const fresh=grid.querySelector("table");
+        fresh.addEventListener("input",ev=>{if(ev.target.matches("td"))updateMealFromTable(name,day,wrap,fresh);});
+        fresh.addEventListener("paste",()=>{});
+        updateMealFromTable(name,day,wrap,fresh);
+        // Re-bind the robust paste handler by simulating the same table setup through a helper.
+        fresh.addEventListener("paste",ev=>{
+          if(!ev.target.matches("td"))return; const clip=ev.clipboardData?.getData("text/plain")||""; if(!clip)return; ev.preventDefault();
+          const sr=Math.max(1,Number(ev.target.dataset.row)||1),sc=Number(ev.target.dataset.col)||0; const rows=clip.replace(/\r/g,"").split("\n").map(r=>r.split("\t")); const body=fresh.tBodies[0];
+          while(body.rows.length<sr+rows.length-1){const tr=document.createElement("tr");for(let c=0;c<7;c++){const td=document.createElement("td");td.contentEditable="true";td.spellcheck=false;tr.appendChild(td);}body.appendChild(tr);}
+          rows.forEach((r,ri)=>r.slice(0,7-sc).forEach((v,ci)=>{const td=body.rows[sr-1+ri]?.cells[sc+ci];if(td)td.textContent=v;})); updateMealFromTable(name,day,wrap,fresh);
+        });
+      }catch(err){}
     });
-    meals.appendChild(wrap);
   });
 }
+
 function openDay(key){
   selectedDate=key;
   const d=new Date(key+"T12:00:00");viewDate=new Date(d.getFullYear(),d.getMonth(),1,12);
