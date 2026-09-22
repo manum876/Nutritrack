@@ -316,11 +316,26 @@ let selectedDate = keyFor(new Date());
 
 function keyFor(d){ return d.toISOString().slice(0,10); }
 function parseNum(s){
-  let v=String(s).trim().replace(/\s/g,"");
-  if(v.includes(",") && v.includes(".")) v=v.replace(/\./g,"").replace(",",".");
-  else if(v.includes(",")) v=v.replace(",",".");
-  else if(/^\d+\.\d{3}$/.test(v)) v=v.replace(".","");
-  const n=Number(v); return Number.isFinite(n)?n:0;
+  // Extract the first numeric value and normalize Spanish/English separators.
+  // Examples: "1.577 kcal" -> 1577, "87.4 g" -> 87.4, "87,4 g" -> 87.4.
+  let v=String(s??"").trim().replace(/\s/g,"");
+  const match=v.match(/-?\d+(?:[.,]\d+)*/);
+  if(!match) return 0;
+  v=match[0];
+  if(v.includes(",") && v.includes(".")){
+    // The last separator is the decimal separator; the others are thousands.
+    const lastComma=v.lastIndexOf(","), lastDot=v.lastIndexOf(".");
+    if(lastComma>lastDot) v=v.replace(/\./g,"").replace(",",".");
+    else v=v.replace(/,/g,"");
+  }else if(v.includes(",")){
+    const parts=v.split(",");
+    v=parts.length===2 && parts[1].length===3 ? parts.join("") : v.replace(",",".");
+  }else if(v.includes(".")){
+    const parts=v.split(".");
+    if(parts.length===2 && parts[1].length===3) v=parts.join("");
+  }
+  const n=Number(v);
+  return Number.isFinite(n)?n:0;
 }
 function fmt(n, decimals=1){
   if (!Number.isFinite(n)) return "0";
@@ -383,7 +398,15 @@ function extractTotals(text){
 }
 function dayTotals(day){
   const total={kcal:0,protein:0,carbs:0,fat:0,fiber:0};
-  MEALS.forEach(m=>Object.keys(total).forEach(k=>total[k]+=Number(day.meals[m]?.data?.[k]||0)));
+  MEALS.forEach(m=>{
+    const meal=day.meals[m];
+    if(!meal) return;
+    // Re-parse the stored table text every time totals are calculated.
+    // This also repairs older days whose cached parsed values were saved incorrectly.
+    const parsed=meal.text ? extractTotals(meal.text) : null;
+    const data=parsed || meal.data || {kcal:0,protein:0,carbs:0,fat:0,fiber:0};
+    Object.keys(total).forEach(k=>total[k]+=Number(data[k]||0));
+  });
   return total;
 }
 function pct(v,g){ return g>0 ? Math.min(1,v/g) : 0; }
@@ -509,6 +532,10 @@ function renderDay(){
   const meals=document.getElementById("meals");meals.innerHTML="";
   MEALS.forEach(name=>{
     const data=day.meals[name]||{text:"",data:{kcal:0,protein:0,carbs:0,fat:0,fiber:0},parsed:false};
+    if(data.text){
+      const reparsed=extractTotals(data.text);
+      if(reparsed){data.data=reparsed;data.parsed=true;}
+    }
     day.meals[name]=data;
     const wrap=document.createElement("div");wrap.className="meal";
     wrap.innerHTML=`<div class="meal-top"><span class="meal-title">${name}</span><span class="meal-total">${data.parsed?fmt(data.data.kcal,0)+" kcal":"Sin datos"}</span></div><div class="nutrition-grid"></div><div class="meal-bottom"><span class="parse-status">${data.parsed?"✓ Datos interpretados":"Esperando datos"}</span><div class="meal-actions"><button class="small-btn paste" type="button">Pegar</button><button class="small-btn clear" type="button">Borrar</button></div></div>`;
